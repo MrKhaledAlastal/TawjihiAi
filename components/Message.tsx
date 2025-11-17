@@ -24,7 +24,8 @@ const MessageComponent: React.FC<MessageProps> = ({ message }) => {
 
   const wrapperClasses = `flex items-start gap-3 my-4 ${isUser ? 'flex-row-reverse' : 'flex-row'}`;
   const messageClasses = `px-4 py-3 rounded-lg max-w-2xl shadow-sm ${isUser ? 'bg-[var(--user-bubble-bg)] text-white' : 'bg-[var(--ai-bubble-bg)] text-[var(--text-primary)]'}`;
-  const iconWrapperClasses = `flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-1 ${isUser ? 'bg-green-200 text-green-800' : 'bg-slate-600 text-[var(--accent)]'}`;
+  // 🔥 FIX: Improved user icon style for theme consistency
+  const iconWrapperClasses = `flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-1 ${isUser ? 'bg-slate-700 text-slate-300' : 'bg-slate-600 text-[var(--accent)]'}`;
 
   // Simple markdown-to-html for bold text
   const formatText = (text: string) => {

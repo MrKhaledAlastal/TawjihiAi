@@ -34,6 +34,7 @@ export interface User {
   uid: string;
   name: string | null;
   email: string | null;
+  branchId?: BranchId;
 }
 
 export interface ChatSession {

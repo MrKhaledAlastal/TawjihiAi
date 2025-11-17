@@ -19,3 +19,5 @@ const app = (window as any).firebase.initializeApp(firebaseConfig);
 
 export const auth = app.auth();
 export const db = app.firestore();
+// Export the firebase namespace to access FieldValue.serverTimestamp()
+export const firebase = (window as any).firebase;

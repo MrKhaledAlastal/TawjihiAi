@@ -30,10 +30,19 @@ const Sidebar: React.FC<SidebarProps> = ({
     const unsubscribe = db.collection('chats')
       .where('userId', '==', currentUser.uid)
       .orderBy('createdAt', 'desc')
-      .onSnapshot(snapshot => {
-        const history = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChatSession));
-        setChatHistory(history);
-      });
+      .onSnapshot(
+        (snapshot) => {
+          const history = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() } as ChatSession))
+            // 🔥 FIX: Prevent crash if createdAt is temporarily null from serverTimestamp
+            .filter(chat => chat.createdAt); 
+          setChatHistory(history);
+        },
+        (error) => {
+          console.error("Error fetching chat history:", error);
+          setChatHistory([]); 
+        }
+      );
     
     return () => unsubscribe();
   }, [currentUser]);

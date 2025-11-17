@@ -3,22 +3,59 @@ import { Branch, Message, MessageSender, User } from '../types';
 import MessageComponent from './Message';
 import PromptSuggestions from './PromptSuggestions';
 import { SendIcon, LoadingSpinner, AttachmentIcon } from './icons';
-import { db } from '../firebaseConfig';
+import { db, firebase } from '../firebaseConfig';
 import { BRANCHES } from '../constants';
 
 // ——————————————————————————————
-// 🔥 IMPORTANT: Gemini API call via Vercel backend
+// 🔥 FIX: Robust fetch with timeout and error handling
 // ——————————————————————————————
-async function askGemini(message: string) {
-  const res = await fetch("/api/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message }),
-  });
-
-  const data = await res.json();
-  return data.text;
+async function fetchWithTimeout(resource: string, options: RequestInit = {}, timeout = 15000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(resource, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(id);
+    return response;
+  } catch (error) {
+    clearTimeout(id);
+    throw error; // Re-throw AbortError or other fetch errors
+  }
 }
+
+async function askGemini(message: string) {
+  try {
+    const res = await fetchWithTimeout("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    }, 15000); // 15 second timeout
+
+    if (!res.ok) {
+      let errorData;
+      try {
+        errorData = await res.json();
+      } catch (e) {
+        // If parsing error JSON fails, throw a generic HTTP error
+        throw new Error(`Server responded with status: ${res.status}`);
+      }
+      // Throw the specific error message from the backend if available
+      throw new Error(errorData.error || `Server responded with status: ${res.status}`);
+    }
+
+    const data = await res.json();
+    return data.text;
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      throw new Error("The request to the AI timed out. Please try again.");
+    }
+    // Re-throw other errors (like the ones created above)
+    throw error;
+  }
+}
+
 
 // ——————————————————————————————
 // 🔥 Replacement for Part (since @google/genai removed)
@@ -70,15 +107,25 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [activeChatId, setActiveChatId] = useState<string | null>(chatId);
   const [currentBranch, setCurrentBranch] = useState<Branch | undefined>(branch);
 
-  const chatInstances = useRef<Map<string, any>>(new Map());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ——————————————————————————————
+  // 🔥 FIX: Sync prop changes to internal state
+  // This ensures the component reacts when a new chat is selected from the sidebar
+  // ——————————————————————————————
+  useEffect(() => {
+    setActiveChatId(chatId);
+  }, [chatId]);
 
   // ——————————————————————————————
   // Load messages from Firestore
   // ——————————————————————————————
   useEffect(() => {
-    if (!activeChatId) return;
+    if (!activeChatId) {
+        setMessages([]); // Clear messages for a new chat
+        return;
+    }
 
     const chatRef = db.collection('chats').doc(activeChatId);
 
@@ -86,8 +133,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       if (doc.exists) {
         const data = doc.data();
         if (data?.branchId) {
-          const branch = BRANCHES.find(b => b.id === data.branchId);
-          setCurrentBranch(branch);
+          const branchData = BRANCHES.find(b => b.id === data.branchId);
+          setCurrentBranch(branchData);
         }
       }
     });
@@ -101,6 +148,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           ...doc.data()
         } as Message));
         setMessages(fetched);
+      }, (error) => {
+        console.error("Error fetching messages:", error);
+        setMessages(prev => [...prev, {
+            id: 'error-fetch',
+            text: 'Failed to load messages. Please check your connection or permissions.',
+            sender: MessageSender.SYSTEM,
+            isError: true,
+            timestamp: new Date(),
+        }]);
       });
 
     return () => unsubscribe();
@@ -109,25 +165,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-
-
-  // ——————————————————————————————
-  // Chat instance (our fake session wrapper)
-  // ——————————————————————————————
-  const getChatInstance = (branchForChat: Branch): any => {
-    const key = `${branchForChat.id}-${useSearch}`;
-
-    if (!chatInstances.current.has(key)) {
-      const newChat = {
-        sendMessage: async (finalMessage: string) => {
-          return await askGemini(finalMessage);
-        }
-      };
-      chatInstances.current.set(key, newChat);
-    }
-
-    return chatInstances.current.get(key)!;
-  };
 
   // ——————————————————————————————
   // Image selection
@@ -148,64 +185,87 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
     let tempId = activeChatId;
     let branchForChat = currentBranch;
+    
+    // This state is set immediately to give user feedback
+    setIsLoading(true);
 
-    // Create new chat record
+    // Create a new chat if one doesn't exist
     if (!tempId && branchForChat) {
-      setIsLoading(true);
-      const newChatRef = await db.collection('chats').add({
-        userId: currentUser.uid,
-        title: currentInput.substring(0, 30),
-        branchId: branchForChat.id,
-        createdAt: new Date(),
-      });
-
-      tempId = newChatRef.id;
-      setActiveChatId(tempId);
-      onChatCreated?.(tempId);
+      try {
+        const newChatRef = await db.collection('chats').add({
+          userId: currentUser.uid,
+          title: currentInput.substring(0, 30) || "New Chat",
+          branchId: branchForChat.id,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+        tempId = newChatRef.id;
+        setActiveChatId(tempId);
+        onChatCreated?.(tempId);
+      } catch (error) {
+        console.error("Error creating new chat:", error);
+        setMessages(prev => [...prev, {
+            id: 'error-create',
+            text: translations.error,
+            sender: MessageSender.SYSTEM,
+            isError: true,
+            timestamp: new Date(),
+        }]);
+        setIsLoading(false);
+        return;
+      }
     }
 
-    if (!tempId || !branchForChat) return;
+    if (!tempId || !branchForChat) {
+        console.error("Cannot send message, no active chat ID or branch.");
+        setIsLoading(false);
+        return;
+    }
 
-    const chatRef = getChatInstance(branchForChat);
-
-    const userMessage: Omit<Message, 'id'> = {
+    const userMessagePayload: Omit<Message, 'id'> = {
       text: currentInput,
       sender: MessageSender.USER,
-      image: imagePreview || undefined,
-      timestamp: new Date(),
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
     };
+    
+    // Conditionally add image to payload
+    if (imagePreview) {
+       (userMessagePayload as any).image = imagePreview;
+    }
 
+    // Reset UI state
     setInput('');
     setImage(null);
     setImagePreview(null);
-    setIsLoading(true);
-
-    await db.collection('chats').doc(tempId).collection('messages').add(userMessage);
-
+    
     try {
-      const finalMessage = `${branchForChat.systemInstruction}\n\n${currentInput}`;
-      const aiText = await chatRef.sendMessage(finalMessage);
+        // Save user message to Firestore. The onSnapshot listener will display it.
+        await db.collection('chats').doc(tempId).collection('messages').add(userMessagePayload);
 
+        // Call the AI
+        const finalMessage = `${branchForChat.systemInstruction}\n\n${currentInput}`;
+        const aiText = await askGemini(finalMessage);
+
+        // Save AI response to Firestore. The onSnapshot listener will display it.
+        await db.collection('chats')
+            .doc(tempId)
+            .collection('messages')
+            .add({
+              text: aiText,
+              sender: MessageSender.AI,
+              timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            });
+
+    } catch (err: any) {
+      console.error('AI or Firestore error:', err);
+      // Display the error in the chat interface
       await db.collection('chats')
         .doc(tempId)
         .collection('messages')
         .add({
-          text: aiText,
-          sender: MessageSender.AI,
-          timestamp: new Date(),
-        });
-
-    } catch (err) {
-      console.error('AI error:', err);
-
-      await db.collection('chats')
-        .doc(tempId)
-        .collection('messages')
-        .add({
-          text: translations.error,
+          text: err.message || translations.error,
           sender: MessageSender.SYSTEM,
           isError: true,
-          timestamp: new Date(),
+          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
         });
 
     } finally {
@@ -275,7 +335,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             <button
               onClick={() => handleSendMessage()}
               disabled={isLoading || (!input.trim() && !image)}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--accent)] hover:bg-green-900/50"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white bg-[var(--accent)] disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
             >
               {isLoading ? <LoadingSpinner /> : <SendIcon className="w-5 h-5"/>}
             </button>

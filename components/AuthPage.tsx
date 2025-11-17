@@ -71,6 +71,22 @@ const AuthPage: React.FC<AuthPageProps> = ({ translations }) => {
     }
   };
 
+  const handleDeveloperLogin = async () => {
+    if (!isStorageEnabled) return;
+    setError('');
+    try {
+      await auth.signInAnonymously();
+      // The onAuthStateChanged listener in App.tsx will handle the rest.
+    } catch (err: any) {
+      if (err.code === 'auth/admin-restricted-operation' || err.code === 'auth/operation-not-allowed') {
+        setError("Developer Sign-In Failed: Please enable Anonymous sign-in in the Firebase Console (Auth > Sign-in method).");
+      } else {
+        setError("Developer sign-in failed. Check console for details.");
+      }
+      console.error("Developer Sign-In Error:", err);
+    }
+  };
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-[var(--background)] p-4">
       <div className="w-full max-w-md">
@@ -160,6 +176,16 @@ const AuthPage: React.FC<AuthPageProps> = ({ translations }) => {
             >
               <GoogleIcon />
               <span>{translations.googleSignIn}</span>
+            </button>
+          </div>
+          
+          <div className="mt-4">
+            <button
+                onClick={handleDeveloperLogin}
+                disabled={!isStorageEnabled}
+                className="w-full flex items-center justify-center gap-3 py-2 px-4 border border-yellow-500 rounded-md shadow-sm text-sm font-medium text-yellow-400 bg-transparent hover:bg-yellow-900/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                <span>تسجيل الدخول كمطور</span>
             </button>
           </div>
 

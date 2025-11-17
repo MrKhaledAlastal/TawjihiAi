@@ -3,45 +3,42 @@ import ChatInterface from './components/ChatInterface';
 import BranchSelector from './components/BranchSelector';
 import Layout from './components/Layout';
 import AuthPage from './components/AuthPage';
-import { Branch, User, ChatSession } from './types';
+import { Branch, User } from './types';
 import { translations } from './translations';
 import { auth, db } from './firebaseConfig';
 import { LoadingSpinner } from './components/icons';
+import { BRANCHES } from './constants';
 
 export type Theme = 'light' | 'dark';
 export type Language = 'ar' | 'en';
 
-async function sendMessageToAI(message: string) {
-  const res = await fetch("/api/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message }),
-  });
-
-  const data = await res.json();
-  return data.text;
-}
-
-
 const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>('dark');
   const [language, setLanguage] = useState<Language>('ar');
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
-  const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(user => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
-        setCurrentUser({
-          uid: user.uid,
-          name: user.displayName,
-          email: user.email,
-        });
+        const userRef = db.collection('users').doc(user.uid);
+        const doc = await userRef.get();
+        if (doc.exists) {
+          setUserProfile({ uid: user.uid, ...doc.data() } as User);
+        } else {
+          // New user, create a profile doc
+          const newUserProfile: User = {
+            uid: user.uid,
+            name: user.displayName,
+            email: user.email,
+          };
+          await userRef.set(newUserProfile);
+          setUserProfile(newUserProfile);
+        }
       } else {
-        setCurrentUser(null);
+        setUserProfile(null);
       }
       setAuthLoading(false);
     });
@@ -60,22 +57,23 @@ const App: React.FC = () => {
   const handleLogout = () => {
     auth.signOut();
     setActiveChatId(null);
-    setSelectedBranch(null);
   };
 
-  const handleSelectBranch = (branch: Branch) => {
-    setSelectedBranch(branch);
+  const handleSelectBranch = async (branch: Branch) => {
+    if (userProfile) {
+      const userRef = db.collection('users').doc(userProfile.uid);
+      await userRef.update({ branchId: branch.id });
+      setUserProfile({ ...userProfile, branchId: branch.id });
+    }
   };
   
   const handleNewChat = () => {
     setActiveChatId(null);
-    setSelectedBranch(null);
     setIsSidebarOpen(false); // Close sidebar on mobile
   };
 
   const handleSelectChat = (chatId: string) => {
     setActiveChatId(chatId);
-    setSelectedBranch(null); // Will be loaded from chat session data
     setIsSidebarOpen(false); // Close sidebar on mobile
   };
 
@@ -89,32 +87,28 @@ const App: React.FC = () => {
     );
   }
   
-  if (!currentUser) {
+  if (!userProfile) {
     return <AuthPage translations={currentTranslations.auth} />;
   }
 
   const renderContent = () => {
-    if (activeChatId) {
-        return <ChatInterface 
-                    key={activeChatId}
-                    chatId={activeChatId} 
-                    currentUser={currentUser} 
-                    translations={currentTranslations.chat} 
-                    onChatEnd={() => setActiveChatId(null)}
-                />;
+    // If user has not selected a branch yet, show the selector.
+    if (!userProfile.branchId) {
+        return <BranchSelector onSelectBranch={handleSelectBranch} translations={currentTranslations.branchSelector} />;
     }
-    if (selectedBranch) {
-        return <ChatInterface 
-                    key={'new-chat'}
-                    chatId={null} 
-                    branch={selectedBranch}
-                    currentUser={currentUser} 
-                    translations={currentTranslations.chat} 
-                    onChatCreated={setActiveChatId}
-                    onChatEnd={() => setSelectedBranch(null)}
-                />;
-    }
-    return <BranchSelector onSelectBranch={handleSelectBranch} translations={currentTranslations.branchSelector} />;
+
+    // User has a branch, so show the chat interface.
+    // We pass a key that only depends on the user, so it doesn't remount on new chat.
+    const branch = BRANCHES.find(b => b.id === userProfile.branchId);
+    return <ChatInterface 
+              key={userProfile.uid} // Stable key to prevent unmounting
+              chatId={activeChatId} 
+              branch={branch} // Pass the user's default branch
+              currentUser={userProfile} 
+              translations={currentTranslations.chat} 
+              onChatCreated={setActiveChatId} // This will now just update the prop
+              onChatEnd={() => setActiveChatId(null)}
+            />;
   };
 
   return (
@@ -126,7 +120,7 @@ const App: React.FC = () => {
         onNewChat={handleNewChat}
         onSelectChat={handleSelectChat}
         translations={currentTranslations.sidebar}
-        currentUser={currentUser}
+        currentUser={userProfile}
         onLogout={handleLogout}
         activeChatId={activeChatId}
         isSidebarOpen={isSidebarOpen}
