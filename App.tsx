@@ -33,11 +33,6 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    // This handles the redirect result from Google Sign-In
-    auth.getRedirectResult().catch((error) => {
-      console.error("Error processing redirect result:", error);
-    });
-
     const unsubscribe = auth.onAuthStateChanged(user => {
       if (user) {
         setCurrentUser({

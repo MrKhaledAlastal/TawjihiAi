@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { VextronicLogo, GoogleIcon } from './icons';
 import { auth } from '../firebaseConfig';
 
@@ -13,9 +13,24 @@ const AuthPage: React.FC<AuthPageProps> = ({ translations }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isStorageEnabled, setIsStorageEnabled] = useState(true);
+
+  useEffect(() => {
+    try {
+      // Firebase needs web storage to persist auth state.
+      localStorage.setItem('__firebase_storage_test__', '1');
+      localStorage.removeItem('__firebase_storage_test__');
+      setIsStorageEnabled(true);
+    } catch (e) {
+      setIsStorageEnabled(false);
+      setError("Web storage (cookies) is disabled. Please enable it in your browser settings to sign in.");
+      console.error("Web storage check failed:", e);
+    }
+  }, []);
 
   const handleAuthAction = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isStorageEnabled) return;
     setError('');
 
     try {
@@ -29,7 +44,10 @@ const AuthPage: React.FC<AuthPageProps> = ({ translations }) => {
     } catch (err: any) {
         if (err.code === 'auth/email-already-in-use') {
             setError(translations.emailInUse);
-        } else {
+        } else if (err.code === 'auth/operation-not-allowed') {
+            setError("Email/Password sign-in is disabled for this app.");
+        }
+        else {
             setError(translations.authError);
         }
       console.error("Firebase Auth Error:", err);
@@ -37,14 +55,18 @@ const AuthPage: React.FC<AuthPageProps> = ({ translations }) => {
   };
   
   const handleGoogleSignIn = async () => {
+    if (!isStorageEnabled) return;
     setError('');
     const provider = new (window as any).firebase.auth.GoogleAuthProvider();
     try {
-      // Use signInWithRedirect instead of signInWithPopup
-      await auth.signInWithRedirect(provider);
-      // The redirect will be handled by the listener in App.tsx
-    } catch (err) {
-      setError(translations.authError);
+      await auth.signInWithPopup(provider);
+      // The onAuthStateChanged listener in App.tsx will handle the success.
+    } catch (err: any) {
+      if (err.code === 'auth/operation-not-allowed') {
+        setError("Google Sign-In is disabled for this app. Please contact support.");
+      } else if (err.code !== 'auth/popup-closed-by-user') {
+          setError(translations.authError);
+      }
       console.error("Google Sign-In Error:", err);
     }
   };
@@ -77,7 +99,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ translations }) => {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
-                  className="mt-1 block w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-md shadow-sm py-2 px-3 text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                  disabled={!isStorageEnabled}
+                  className="mt-1 block w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-md shadow-sm py-2 px-3 text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] disabled:opacity-50"
                 />
               </div>
             )}
@@ -91,7 +114,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ translations }) => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="mt-1 block w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-md shadow-sm py-2 px-3 text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                disabled={!isStorageEnabled}
+                className="mt-1 block w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-md shadow-sm py-2 px-3 text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] disabled:opacity-50"
               />
             </div>
             <div>
@@ -104,13 +128,15 @@ const AuthPage: React.FC<AuthPageProps> = ({ translations }) => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="mt-1 block w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-md shadow-sm py-2 px-3 text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                disabled={!isStorageEnabled}
+                className="mt-1 block w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-md shadow-sm py-2 px-3 text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] disabled:opacity-50"
               />
             </div>
             <div>
               <button
                 type="submit"
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[var(--accent)] hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--accent)] transition-colors"
+                disabled={!isStorageEnabled}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[var(--accent)] hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--accent)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLogin ? translations.loginButton : translations.registerButton}
               </button>
@@ -129,7 +155,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ translations }) => {
           <div className="mt-6">
             <button
               onClick={handleGoogleSignIn}
-              className="w-full flex items-center justify-center gap-3 py-2 px-4 border border-[var(--border-color)] rounded-md shadow-sm text-sm font-medium text-[var(--text-secondary)] bg-[var(--input-bg)] hover:bg-[var(--ai-bubble-bg)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--accent)] transition-colors"
+              disabled={!isStorageEnabled}
+              className="w-full flex items-center justify-center gap-3 py-2 px-4 border border-[var(--border-color)] rounded-md shadow-sm text-sm font-medium text-[var(--text-secondary)] bg-[var(--input-bg)] hover:bg-[var(--ai-bubble-bg)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--accent)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <GoogleIcon />
               <span>{translations.googleSignIn}</span>
@@ -139,7 +166,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ translations }) => {
           <div className="mt-6 text-center">
             <p className="text-sm text-[var(--text-secondary)]">
               {isLogin ? translations.switchToRegister : translations.switchToLogin}{' '}
-              <button onClick={() => {setIsLogin(!isLogin); setError('');}} className="font-medium text-[var(--accent)] hover:underline">
+              <button onClick={() => {setIsLogin(!isLogin); setError('');}} className="font-medium text-[var(--accent)] hover:underline" disabled={!isStorageEnabled}>
                 {isLogin ? translations.switchToRegisterLink : translations.switchToLoginLink}
               </button>
             </p>

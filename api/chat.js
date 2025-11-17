@@ -1,16 +1,26 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
 export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+
   try {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const body = JSON.parse(req.body);
     const prompt = body.message;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const result = await model.generateContent(prompt);
+    if (!prompt) {
+        return res.status(400).json({ error: 'Message is required' });
+    }
 
-    res.status(200).json({ text: result.response.text() });
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+
+    res.status(200).json({ text: response.text });
 
   } catch (err) {
     console.error("AI ERROR:", err);
