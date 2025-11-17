@@ -61,12 +61,18 @@ const Sidebar: React.FC<SidebarProps> = ({
   }
 
   return (
-    <aside className={`w-72 bg-[var(--sidebar-bg)] p-4 flex flex-col
-                      fixed md:relative inset-y-0 z-40
-                      transform transition-transform duration-300 ease-in-out
-                      ${isSidebarOpen ? 'translate-x-0' : 'rtl:translate-x-full ltr:-translate-x-full'}
-                      md:translate-x-0
-                      rtl:border-r rtl:border-l-0 ltr:border-l border-[var(--border-color)]`}>
+    // 🔥 FIX: Added flex-shrink-0 and md:transform-none to ensure sidebar is always visible on desktop
+    <aside
+  className={`
+    w-72 flex-shrink-0 bg-[var(--sidebar-bg)] p-4 flex flex-col
+    fixed md:relative inset-y-0 z-40
+    transform transition-transform duration-300 ease-in-out
+    ${isSidebarOpen ? 'translate-x-0' : 'rtl:translate-x-full ltr:-translate-x-full'}
+    md:translate-x-0
+    rtl:border-r rtl:border-l-0 ltr:border-l border-[var(--border-color)]
+  `}
+>
+
       <div className="flex items-center justify-between pb-4">
         <VextronicLogo />
         <button

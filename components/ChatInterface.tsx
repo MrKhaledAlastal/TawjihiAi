@@ -25,12 +25,13 @@ async function fetchWithTimeout(resource: string, options: RequestInit = {}, tim
   }
 }
 
-async function askGemini(message: string) {
+// 🔥 FIX: Pass system instruction separately to the backend
+async function askGemini(message: string, systemInstruction: string) {
   try {
     const res = await fetchWithTimeout("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, systemInstruction }),
     }, 15000); // 15 second timeout
 
     if (!res.ok) {
@@ -242,8 +243,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         await db.collection('chats').doc(tempId).collection('messages').add(userMessagePayload);
 
         // Call the AI
-        const finalMessage = `${branchForChat.systemInstruction}\n\n${currentInput}`;
-        const aiText = await askGemini(finalMessage);
+        // 🔥 FIX: Pass instruction and input separately
+        const aiText = await askGemini(currentInput, branchForChat.systemInstruction);
 
         // Save AI response to Firestore. The onSnapshot listener will display it.
         await db.collection('chats')

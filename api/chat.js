@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -6,21 +6,32 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { message } = req.body;
+    const { message, systemInstruction } = req.body;
 
     if (!message || message.trim() === "") {
       return res.status(400).json({ error: "No message provided" });
     }
+    
+    if (!process.env.API_KEY) {
+      console.error("API_KEY environment variable is not set.");
+      return res.status(500).json({ error: "Server configuration error." });
+    }
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [{ role: 'user', parts: [{ text: message }] }],
+      config: {
+        systemInstruction: systemInstruction,
+      },
     });
 
-    const result = await model.generateContent(message);
+    const responseText = response.text;
 
-    const responseText = result.response.text();
+    if (!responseText) {
+      return res.status(500).json({ error: "AI returned an empty response." });
+    }
 
     return res.status(200).json({
       text: responseText,

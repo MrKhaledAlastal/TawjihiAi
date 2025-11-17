@@ -38,7 +38,7 @@ const Layout: React.FC<LayoutProps> = ({
   const gridBackground = {
     backgroundImage:
       'linear-gradient(var(--border-color) 1px, transparent 1px), linear-gradient(90deg, var(--border-color) 1px, transparent 1px)',
-    backgroundSize: '1.5rem 1.5rem',
+    backgroundSize: '4rem 4rem',
   };
 
   return (
