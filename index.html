@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vextronic AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    
+    <style>
+      :root {
+        --background: #0D0D0D;
+        --foreground: #EAEAEA;
+        --sidebar-bg: #1A1A1A;
+        --chat-bg: #0D0D0D;
+        --user-bubble-bg: #22C55E;
+        --ai-bubble-bg: #252525;
+        --input-bg: #1A1A1A;
+        --border-color: #2D2D2D;
+        --text-primary: #FFFFFF;
+        --text-secondary: #A0A0A0;
+        --accent: #22C55E;
+      }
+
+      html.light {
+        --background: #FFFFFF;
+        --foreground: #111111;
+        --sidebar-bg: #F5F5F5;
+        --chat-bg: #FFFFFF;
+        --user-bubble-bg: #22C55E;
+        --ai-bubble-bg: #E5E7EB;
+        --input-bg: #F5F5F5;
+        --border-color: #E5E7EB;
+        --text-primary: #111827;
+        --text-secondary: #6B7280;
+        --accent: #22C55E;
+      }
+
+      body {
+        font-family: 'Cairo', sans-serif;
+        background-color: var(--background);
+        color: var(--text-primary);
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.1",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

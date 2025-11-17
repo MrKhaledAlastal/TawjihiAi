@@ -1,0 +1,153 @@
+import React, { useState } from 'react';
+import { VextronicLogo, GoogleIcon } from './icons';
+import { auth } from '../firebaseConfig';
+
+
+interface AuthPageProps {
+  translations: any;
+}
+
+const AuthPage: React.FC<AuthPageProps> = ({ translations }) => {
+  const [isLogin, setIsLogin] = useState(true);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleAuthAction = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    try {
+      if (isLogin) {
+        await auth.signInWithEmailAndPassword(email, password);
+      } else {
+        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        await userCredential.user.updateProfile({ displayName: name });
+      }
+      // The onAuthStateChanged listener in App.tsx will handle the redirect.
+    } catch (err: any) {
+        if (err.code === 'auth/email-already-in-use') {
+            setError(translations.emailInUse);
+        } else {
+            setError(translations.authError);
+        }
+      console.error("Firebase Auth Error:", err);
+    }
+  };
+  
+  const handleGoogleSignIn = async () => {
+    setError('');
+    const provider = new (window as any).firebase.auth.GoogleAuthProvider();
+    try {
+      // Use signInWithRedirect instead of signInWithPopup
+      await auth.signInWithRedirect(provider);
+      // The redirect will be handled by the listener in App.tsx
+    } catch (err) {
+      setError(translations.authError);
+      console.error("Google Sign-In Error:", err);
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-[var(--background)] p-4">
+      <div className="w-full max-w-md">
+        <VextronicLogo className="mb-8 justify-center" />
+        <div className="bg-[var(--sidebar-bg)] p-8 rounded-xl border border-[var(--border-color)] shadow-2xl">
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-bold text-[var(--text-primary)]">
+              {isLogin ? translations.loginTitle : translations.registerTitle}
+            </h1>
+            <p className="text-[var(--text-secondary)] mt-2">
+              {isLogin ? translations.loginSubtitle : translations.registerSubtitle}
+            </p>
+          </div>
+
+          {error && <p className="mb-4 text-center text-red-400 bg-red-900/50 p-2 rounded-md">{error}</p>}
+
+          <form onSubmit={handleAuthAction} className="space-y-6">
+            {!isLogin && (
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-[var(--text-secondary)]">
+                  {translations.nameLabel}
+                </label>
+                <input
+                  type="text"
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  className="mt-1 block w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-md shadow-sm py-2 px-3 text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                />
+              </div>
+            )}
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-[var(--text-secondary)]">
+                {translations.emailLabel}
+              </label>
+              <input
+                type="email"
+                id="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="mt-1 block w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-md shadow-sm py-2 px-3 text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+              />
+            </div>
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-[var(--text-secondary)]">
+                {translations.passwordLabel}
+              </label>
+              <input
+                type="password"
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="mt-1 block w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-md shadow-sm py-2 px-3 text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+              />
+            </div>
+            <div>
+              <button
+                type="submit"
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[var(--accent)] hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--accent)] transition-colors"
+              >
+                {isLogin ? translations.loginButton : translations.registerButton}
+              </button>
+            </div>
+          </form>
+          
+          <div className="mt-6 relative">
+            <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-[var(--border-color)]"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-[var(--sidebar-bg)] text-[var(--text-secondary)]">{translations.orSeparator}</span>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <button
+              onClick={handleGoogleSignIn}
+              className="w-full flex items-center justify-center gap-3 py-2 px-4 border border-[var(--border-color)] rounded-md shadow-sm text-sm font-medium text-[var(--text-secondary)] bg-[var(--input-bg)] hover:bg-[var(--ai-bubble-bg)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--accent)] transition-colors"
+            >
+              <GoogleIcon />
+              <span>{translations.googleSignIn}</span>
+            </button>
+          </div>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-[var(--text-secondary)]">
+              {isLogin ? translations.switchToRegister : translations.switchToLogin}{' '}
+              <button onClick={() => {setIsLogin(!isLogin); setError('');}} className="font-medium text-[var(--accent)] hover:underline">
+                {isLogin ? translations.switchToRegisterLink : translations.switchToLoginLink}
+              </button>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AuthPage;
