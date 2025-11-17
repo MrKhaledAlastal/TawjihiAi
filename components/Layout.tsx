@@ -2,6 +2,7 @@ import React, { ReactNode } from 'react';
 import Sidebar from './Sidebar';
 import { Theme, Language } from '../App';
 import { User } from '../types';
+import { MenuIcon } from './icons';
 
 interface LayoutProps {
   children: ReactNode;
@@ -15,6 +16,8 @@ interface LayoutProps {
   currentUser: User | null;
   onLogout: () => void;
   activeChatId: string | null;
+  isSidebarOpen: boolean;
+  setIsSidebarOpen: (isOpen: boolean) => void;
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
@@ -28,7 +31,9 @@ const Layout: React.FC<LayoutProps> = ({
   translations,
   currentUser,
   onLogout,
-  activeChatId
+  activeChatId,
+  isSidebarOpen,
+  setIsSidebarOpen
 }) => {
   const gridBackground = {
     backgroundImage:
@@ -37,7 +42,7 @@ const Layout: React.FC<LayoutProps> = ({
   };
 
   return (
-    <div className="flex h-screen w-full bg-[var(--background)]">
+    <div className="flex h-screen w-full bg-[var(--background)] overflow-hidden">
       <Sidebar 
         theme={theme} 
         setTheme={setTheme}
@@ -49,8 +54,24 @@ const Layout: React.FC<LayoutProps> = ({
         currentUser={currentUser}
         onLogout={onLogout}
         activeChatId={activeChatId}
+        isSidebarOpen={isSidebarOpen}
+        setIsSidebarOpen={setIsSidebarOpen}
       />
-      <main className="flex-1 h-full" style={gridBackground}>
+      <main className="flex-1 h-full relative" style={gridBackground}>
+        <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="md:hidden absolute top-4 ltr:left-4 rtl:right-4 z-20 p-2 rounded-md bg-[var(--sidebar-bg)]/80 backdrop-blur-sm text-[var(--text-primary)] border border-[var(--border-color)]"
+            aria-label="Open menu"
+          >
+          <MenuIcon className="w-6 h-6" />
+        </button>
+        {isSidebarOpen && (
+          <div 
+            className="md:hidden fixed inset-0 bg-black/50 z-30"
+            onClick={() => setIsSidebarOpen(false)}
+            aria-hidden="true"
+          ></div>
+        )}
         {children}
       </main>
     </div>

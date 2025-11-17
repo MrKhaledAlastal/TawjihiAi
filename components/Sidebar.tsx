@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { VextronicLogo, PlusIcon, SunIcon, MoonIcon, LanguageIcon, UserIconWithCircle, LogoutIcon } from './icons';
+import { VextronicLogo, PlusIcon, SunIcon, MoonIcon, LanguageIcon, UserIconWithCircle, LogoutIcon, CloseIcon } from './icons';
 import { Theme, Language } from '../App';
 import { User, ChatSession } from '../types';
 import { db } from '../firebaseConfig';
@@ -15,9 +15,13 @@ interface SidebarProps {
   currentUser: User | null;
   onLogout: () => void;
   activeChatId: string | null;
+  isSidebarOpen: boolean;
+  setIsSidebarOpen: (isOpen: boolean) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ theme, setTheme, language, setLanguage, onNewChat, onSelectChat, translations, currentUser, onLogout, activeChatId }) => {
+const Sidebar: React.FC<SidebarProps> = ({ 
+  theme, setTheme, language, setLanguage, onNewChat, onSelectChat, translations, currentUser, onLogout, activeChatId, isSidebarOpen, setIsSidebarOpen 
+}) => {
   const [chatHistory, setChatHistory] = useState<ChatSession[]>([]);
 
   useEffect(() => {
@@ -41,14 +45,34 @@ const Sidebar: React.FC<SidebarProps> = ({ theme, setTheme, language, setLanguag
   const toggleLanguage = () => {
     setLanguage(language === 'ar' ? 'en' : 'ar');
   };
+  
+  const handleLogout = () => {
+    setIsSidebarOpen(false);
+    onLogout();
+  }
 
   return (
-    <aside className="w-64 bg-[var(--sidebar-bg)] p-4 flex flex-col border-l border-[var(--border-color)]">
-      <div className="flex-1 overflow-y-auto">
+    <aside className={`w-72 bg-[var(--sidebar-bg)] p-4 flex flex-col
+                      fixed md:relative inset-y-0 z-40
+                      transform transition-transform duration-300 ease-in-out
+                      ${isSidebarOpen ? 'translate-x-0' : 'rtl:translate-x-full ltr:-translate-x-full'}
+                      md:translate-x-0
+                      rtl:border-r rtl:border-l-0 ltr:border-l border-[var(--border-color)]`}>
+      <div className="flex items-center justify-between pb-4">
         <VextronicLogo />
+        <button
+          onClick={() => setIsSidebarOpen(false)}
+          className="md:hidden text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          aria-label="Close menu"
+        >
+          <CloseIcon className="w-6 h-6" />
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
         <button 
           onClick={onNewChat}
-          className="mt-6 w-full flex items-center justify-center gap-2 p-2 rounded-lg text-white bg-[var(--accent)] hover:bg-green-700 font-semibold transition-colors"
+          className="w-full flex items-center justify-center gap-2 p-2 rounded-lg text-white bg-[var(--accent)] hover:bg-green-700 font-semibold transition-colors"
         >
           <PlusIcon className="w-5 h-5"/>
           <span>{translations.newChat}</span>
@@ -98,7 +122,7 @@ const Sidebar: React.FC<SidebarProps> = ({ theme, setTheme, language, setLanguag
            <span>{language === 'ar' ? 'English' : 'العربية'}</span>
          </button>
          <button 
-            onClick={onLogout}
+            onClick={handleLogout}
             className="w-full flex items-center gap-2 p-2 rounded-lg text-red-400 hover:bg-red-900/50 hover:text-red-300 transition-colors"
           >
            <LogoutIcon className="w-5 h-5"/>

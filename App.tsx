@@ -11,6 +11,18 @@ import { LoadingSpinner } from './components/icons';
 export type Theme = 'light' | 'dark';
 export type Language = 'ar' | 'en';
 
+async function sendMessageToAI(message: string) {
+  const res = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message }),
+  });
+
+  const data = await res.json();
+  return data.text;
+}
+
+
 const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>('dark');
   const [language, setLanguage] = useState<Language>('ar');
@@ -18,6 +30,7 @@ const App: React.FC = () => {
   const [authLoading, setAuthLoading] = useState(true);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     // This handles the redirect result from Google Sign-In
@@ -62,11 +75,13 @@ const App: React.FC = () => {
   const handleNewChat = () => {
     setActiveChatId(null);
     setSelectedBranch(null);
+    setIsSidebarOpen(false); // Close sidebar on mobile
   };
 
   const handleSelectChat = (chatId: string) => {
     setActiveChatId(chatId);
     setSelectedBranch(null); // Will be loaded from chat session data
+    setIsSidebarOpen(false); // Close sidebar on mobile
   };
 
   const currentTranslations = translations[language];
@@ -119,6 +134,8 @@ const App: React.FC = () => {
         currentUser={currentUser}
         onLogout={handleLogout}
         activeChatId={activeChatId}
+        isSidebarOpen={isSidebarOpen}
+        setIsSidebarOpen={setIsSidebarOpen}
     >
       {renderContent()}
     </Layout>
